@@ -1,0 +1,4 @@
+load("/Users/linglinhuang/360/research_git/research_KR/cleared_DAWN/release_v1/sample_input_additional_covariates.Rdata")
+sample_input_covariate_genes
+covariate_genes
+load("/Users/linglinhuang/360/research_git/research_KR/cleared_DAWN/release_v1/sample_input_additional_covariates.Rdata")

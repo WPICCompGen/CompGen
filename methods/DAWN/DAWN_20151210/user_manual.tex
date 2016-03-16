@@ -1,0 +1,286 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb,amsfonts,amsthm,graphicx,enumitem,algorithm,algorithmic,hyperref}
+\usepackage{listings}
+\usepackage[utf8]{inputenc}
+\usepackage[parfill]{parskip}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\usepackage[top=1in,bottom=1in,left=1.4in,right=1.4in]{geometry}
+\usepackage{float}
+\title{ \vspace{-5mm}
+        \textbf{DAWN User Manual}}       
+%\author{Linglin Huang\\
+%\href{mailto:lhuang1@andrew.cmu.edu}{lhuang1@andrew.cmu.edu}}        
+\date{}
+\usepackage{color}
+\usepackage[dvipsnames]{xcolor}
+\lstset{
+	language=R,
+	basicstyle=\scriptsize\ttfamily,
+	commentstyle=\ttfamily\color{gray},
+	numbers=left,
+	numberstyle=\ttfamily\color{gray}\footnotesize,
+	stepnumber=1,
+	numbersep=5pt,
+	backgroundcolor=\color{white},
+	showspaces=false,
+	showstringspaces=false,
+	showtabs=false,
+	frame=single,
+	tabsize=2,
+	captionpos=b,
+	breaklines=true,
+	breakatwhitespace=false,
+	title=\lstname,
+	escapeinside={},
+	keywordstyle={},
+	morekeywords={}
+}
+
+\begin{document}
+\maketitle 
+
+\tableofcontents
+
+\newpage
+\section{Overview}
+This \texttt{R} implementation is based on the paper Network Assisted Analysis to Reveal the Genetic Basis of Autism (Li Liu, Jing Lei and Kathryn Roeder)\cite{liu2015}.
+
+\textbf{DAWN} (Detecting Association With Networks) is a statistical algorithm that uses a hidden Markov random field (HMRF) model to discover risk genes from gene co-expression network estimated by partial neighborhood selection (PNS) algorithm.
+
+
+\section{Usage}
+	\subsection{Download DAWN}
+		\subsubsection{Files}
+		\texttt{DAWN} package contains 6 files: 2 \texttt{R} source files, and 4 sample input data files.
+		\begin{itemize}
+			\item \textbf{source\_DAWN.R}: source file containing functions for PNS and HMRF analysis
+			
+			\item \textbf{run\_DAWN.R}: \texttt{R} script for running complete DAWN analysis by calling functions defined in {source\_DAWN.R}
+			
+			\item \textbf{sample\_input\_GLA.txt}: sample input for gene level association statistics, see details in section \ref{inputGLA}
+			
+			\item \textbf{sample\_input\_expression.txt}: sample gene expression input data, see details in section \ref{inputExpression}
+			
+			\item \textbf{sample\_input\_fixed\_genes.txt}: sample input for genes to have fixed hidden states \ref{inputFixedGenes}
+			
+			\item \textbf{sample\_input\_additional\_covariates.txt}: sample input for additional covariates, se details in section \ref{inputAdditionalCovariates}
+		\end{itemize}
+		
+		\subsubsection{Package Dependences}
+		DAWN requires the following pacakge(s):
+		\begin{itemize}
+			\item \texttt{glmnet}\cite{glmnet1, glmnet2}: used in HMRF analysis (\texttt{glmnet} requires package \texttt{Matrix} and \texttt{foreach})
+		\end{itemize}
+	
+	\subsection{Prepare Inputs}
+		\subsubsection{Gene Level Association Statistics (GLA)}
+		\label{inputGLA}
+		Gene level association statistics (GLA), such as TADA and Sherlock, should contain at least two parts: gene names, and p-values. GLA data should be processed into two vectors:
+		\begin{itemize}
+			\item \texttt{GLA\_genenames}, a vector of gene names (one string for every gene). The gene names should be consistent with those used in gene expression data (using the same nomenclature, e.g. both use Ensembl IDs)
+			\item\texttt{GLA\_pvalue}, a vector of p-values (numeric). Its ordering should be consistent with GLA gene names.
+		\end{itemize}
+		
+		\subsubsection{Gene Expression Data}
+		\label{inputExpression}
+		Gene expression data should contain the information about gene names, samples, and the expression value of each gene in each sample. Gene expression data should be processed into a data frame, \texttt{expdata}, where:
+		\begin{itemize}
+			\item each row represents a gene, and every column represents a sample;
+			\item row and column names should be set to corresponding gene and sample names. 
+		\end{itemize}
+		
+		\subsubsection{Fixed Genes}
+		\label{inputFixedGenes}
+		There may exist some genes that are proved to be risk genes for the disease of interest. In order to incorporate such previous knowledge, we provide the \texttt{fixedGene} variable. 
+		
+		\texttt{fixedGene} is a vector of gene names (one string for every gene, can be empty) whose hidden states you would like to set to 1 throughout the HMRF analysis.
+		
+		Fixed genes can also be set automatically based on the magnitude of the \texttt{GLA\_pvalue}.   See \texttt{trimthresh} in \ref{trimthres} below.
+		
+		The gene names should be consistent with those used in gene expression data (using the same nomenclature, e.g. both use Ensembl IDs).
+		
+		To use fixed genes information, include \texttt{fixedGene = fixedGene} as a parameter when calling the function \texttt{identify\_risk\_genes()}.
+		
+		\subsubsection{Additional Covariates}
+		\label{inputAdditionalCovariates}
+			
+		DAWN can incorporate additional covariates to predict risk genes. Because the targets of one or more key transcription factors can be a meaningful covariate, we provide the \texttt{covGene} variable to take in this information. 
+		 
+		\texttt{covGene} is a vector of gene names you believe that will affect the HMRF analysis. For example,  gene names of targets of one or more transcription factors.
+		
+		To use \texttt{covGene} information, include \texttt{covGene = covGene} as a parameter when calling the function \texttt{identify\_risk\_genes()}.
+
+	\subsection{Quick Start Using \texttt{run\_DAWN.R}}
+	\subsubsection{Steps}
+	To perform a complete DAWN analysis using GLA and gene expression data, follow these steps:
+	\begin{enumerate}
+		\item open file \texttt{run\_DAWN.R}
+		\item set your working directory to the directory of your DAWN code
+		\item load gene expression data
+		\item load GLA data
+		\item adjust parameters*
+		\item adjust input for function \texttt{identify\_risk\_genes()}**
+		\item save modifications on \texttt{run\_DAWN.R} and source it using command \texttt{source('run\_DAWN.R')}
+	\end{enumerate}
+
+	\textbf{* Parameters:}
+	\begin{itemize}
+		\item \texttt{pthres\_pns}: threshold for p-value in PNS algorithm, default = 0.1
+		\item \texttt{corthres}: threshold for pairwise-correlation in PNS algorithm, default = 0.7
+		\item \texttt{lambda}: tuning parameter for lasso, default = 0.24; lambda can affect the structure of PNS estimated graph, see \ref{chooseLambda} for more details.
+		\item \texttt{pthres\_hmrf}: threshold for p-value in HMRF analysis, default = 0.05
+		\item \texttt{iter}: number of iterations in HMRF analysis, default = 100
+		\label{trimthres}
+		\item \texttt{trimthres}: threshold for $Z$ score trimming, default = 5, where $Z$ = normal score for the \texttt{GLA\_pvalue}.\\
+		To achieve robust estimates for the parameters in HMRF, we need to exclude some genes that have exceptionally high Z scores (or, low p-values). Also, these genes are very likely to be true risk genes according to the meaning of GLA p-value. Therefore, we provide a variable, \texttt{trimthres}, the trimming threshold for Z scores. For genes with $Z>$ \texttt{trimthres}, we fix their hidden states to 1 throughout the HMRF analysis so as to exclude them from the parameter estimation process.\\
+		Please note, the union of genes with $Z>$ \texttt{trimthres} and genes in \texttt{fixedGene} are both treated as fixed genes in the function \texttt{DAWN\_HMRF()} in the source file.
+		\item \texttt{file\_out\_pns}: output file directory for estimated PNS network, default = 'pns.network'
+		\item \texttt{file\_out\_hmrf}: output file directory for HMRF analysis results, default = 'DAWN\_result.csv'
+	\end{itemize}
+
+	\textbf{** Call \texttt{identify\_risk\_genes()} function}
+	
+	Please include \texttt{fixedGene= fixedGene} and/or \texttt{covGene= covGene} if you would like to include \texttt{fixedGene} and/or \texttt{covGene} information. For example, if you want to include both information, use
+	\begin{lstlisting}[language=R]
+	identify_risk_genes (GLA_pvalue = GLA_pvalue, GLA_genenames = GLA_genenames, expdata = expdata, covGene= covGene)
+	\end{lstlisting}
+	\subsubsection{Sample code}	
+	\begin{lstlisting}[language=R]
+	##To directly run the code using sample input data
+	source('run_DAWN.R')
+	\end{lstlisting}
+
+	\subsection{PNS Algorithm}
+	\subsubsection{Choose lambda}
+	\label{chooseLambda}
+	\texttt{lambda} is a important parameter in PNS algorithm, because its value directly affects the structure of estimated network (sparsity). As discussed in the paper, the network estimated by the PNS algorithm conforms the power law. Therefore, here we use the square of correlation $R^2 = (corr(log p(k), log(k)))^2$ to assess the goodness of esitmated network, where a larger $R^2$ means better a conformation to the power law. Therefore, the tuning parameter, \texttt{lambda} , can be chosen by visualizing the scatter plot of $R^2$ as a function of \texttt{lambda}.
+	
+	To plot $R^2$ and choose a good \texttt{lambda}, please call:
+	\begin{lstlisting}[language=R]
+		lambda_R2 <- choose_lambda(expdata=expdata, GLA_pvalue=GLA_pvalue, pthres_pns=pthres_pns, corthres=corthres)
+	\end{lstlisting}
+	\textbf{Inputs:}
+	\begin{itemize}
+		\item \texttt{expdata} - dataframe, expression data
+		\item \texttt{GLA\_pvalue} - dataframe, GLA p-values
+		\item \texttt{pthres\_pns} - threshold for p-value screening, default = 0.1
+		\item \texttt{corthres} - threshold for pairwise-correlation, default = 0.7
+	\end{itemize}
+	\textbf{Output:}
+	\begin{itemize}
+		\item \texttt{lambda\_R2} - a matrix where every row represents a \texttt{lambda} and \texttt{R\textsuperscript{2}} value pair		
+	\end{itemize}
+	
+	Then determine a reasonably good \texttt{lambda} for your PNS algorithm, and use this \texttt{lambda} in the future analyses. 
+	
+	\subsubsection{Run PNS}
+	If you have preprocessed your input, chosen a good lambda, and only want to run PNS algorithm, please call:
+
+	\begin{lstlisting}[language=R]
+	graphres_PNS <- PNS_algorithm(expdata = expdata, GLA_pvalue = GLA_pvalue, pthres_pns = pthres_pns, corthres = corthres, lambda = lambda)
+	graphfinal_PNS <- graphres_PNS$graphfinal  ##estimated network
+	genelist_PNS <-  graphres_PNS$Gene  ##a list of genes in the estimated network
+	rownames(graphfinal_PNS) <- genelist_PNS
+	colnames(graphfinal_PNS) <- genelist_PNS
+	write.csv(graphfinal_PNS, file_out_pns)
+	\end{lstlisting}
+	\textbf{Inputs:}
+	\begin{itemize}
+		\item \texttt{expdata} - dataframe, expression data
+		\item \texttt{GLA\_pvalue} - dataframe, GLA p-values
+		\item \texttt{pthres\_pns} - threshold for p-value screening, default = 0.1
+		\item \texttt{corthres} - threshold for pairwise-correlation, default = 0.7
+		\item \texttt{lambda} - tuning parameter for lasso, default = 0.24
+	\end{itemize}
+
+	\textbf{Outputs:}
+	\begin{itemize}
+		\item \texttt{graphres} - a list object representing the estimated PNS network
+		\begin{itemize}
+			\item \texttt{graphres\$Gene} - genes in the network
+			\item \texttt{graphres\$graphfinal} - estimated unweighted, undirected network in matrix format
+			\item \texttt{graphres\$pvfinal} - p-values of genes in the network
+		\end{itemize}
+		
+	\end{itemize}
+	
+	Please note, your expdata and GLA\_pvalue should contain data for the same set of genes.
+	
+	\subsection{HMRF Analysis}
+	If you have preprocessed your input, obtained a gene network (estimated by PNS or other algorithms), and only want to run HMRF analysis, please call:
+	\begin{lstlisting}
+		## suppose you are using the graph estimated by PNS algorithm
+		result_DAWN <- DAWN_HMRF(pv = graphres_PNS$pvfinal, graph = graphres_PNS$graphfinal, covGene = covGene, fixedGene = fixedGene, pthres_hmrf = pthres_hmrf, iter = iter, trimthres = trimthres)
+		report <- result_report(finalposter = (1 - result_DAWN$post), genes = genelist_PNS, pv = graphres_PNS$pvfinal)  ## generate report
+		write.csv(report, file_out_hmrf)
+	\end{lstlisting}
+	\textbf{Inputs:}
+	\begin{itemize}
+		\item \texttt{pv} - vector, p-values of genes in the network
+		\item \texttt{graph} - matrix, estimated network in matrix format
+		\item \texttt{covGene} - vector, names of genes in the additional covariate of HMRF analysis
+		\item \texttt{fixedGene} - vector, names of genes to have fixed hidden states 1 in HMRF analysis
+		\item \texttt{pthres\_hmrf} - threshold for p-values in HMRF initialization, default=0.05
+		\item \texttt{iter} - number of iteration, default=100
+		\item \texttt{trimthres} - threshold for Z score trimming, default=5
+	\end{itemize}
+	\textbf{Outputs:}
+	\begin{itemize}
+		\item \texttt{result\_DAWN} - a list object representing the estimated statistics of genes
+		\begin{itemize}
+			\item \texttt{result\_DAWN\$Iupdate} - updated I
+			\item \texttt{result\_DAWN\$post} - posterior distribution of I
+			\item \texttt{result\_DAWN\$b0} - estimated b
+			\item \texttt{result\_DAWN\$b1} - estimated c
+			\item \texttt{result\_DAWN\$b2} - estimated coefficient for additional covariate (default=0 if additional covariate is not included)
+			\item \texttt{result\_DAWN\$mu1} - estimated mean
+			\item \texttt{result\_DAWN\$sigmas} - estimated variance
+		\end{itemize}
+		
+	\end{itemize}
+	Please note, your pv and graph should correspond to genes of the same ordering.
+
+\subsection{Error and Warning Message Handling}
+	While running DAWN, you may encounter error or warning messages. Here are some explanations to these messages, and tips to handle them.
+	
+	\subsubsection{Error messages:}
+	
+	The program will stop and exit when an error occurs.
+	\begin{itemize}
+		\item ERROR: no common genes shared by GLA data and expression data, please check gene names again...
+		
+		This message means the intersect of genes in GLA and expression data is empty, then you will not be able to perform PNS algorithm where both GLA and expression data is needed for genes to be considered. If you see this error, please check if your two datasets contain genes in common. This error is also very possiblily caused by different naming systems you use in two datasets. Please note that shared genes are detected by directly comparing gene names, and thus is case sensitive.
+		
+		\item ERROR: cannot perform HMRF on empty PNS graph, please adjust your parameters.
+		
+		This message means the graph estimated by PNS is empty, and thus cannot be used in HMRF analysis. To deal with this, you may need to adjust parameters for the PNS algorithm.
+	\end{itemize}
+	
+	\subsubsection{Warning messages:}
+	
+	The program will keep running and return results when a warning is thrown out. However, you should be very careful about the reliability of the returned results.
+	\begin{itemize}
+		\item WARNING: DAWN identified a large number of risk genes. 
+		Assumptions of the model may be false.  The set of risk genes likely contains many false positives.
+		
+		This message means the estimated intercept, \texttt{b0}, is too large, indicating DAWN will identify a large number of risk genes.  This tends to occur when the genes are not clustered in the graph and the algorithm fails to find an acceptable solution.  In this case, it might help to re-estimate your graph using different parameters.
+		
+		\item WARNING: Weak connectivity among risk genes in the input graph. Assumptions of the model appear to be false. 	The set of risk genes likely contains many false positives.
+		
+		This message means the estimated slope parameter, \texttt{b1}, is near 0, indicating the risk genes are not clustered in the graph, resulting in a high false positive rate. In this case, it might help to re-estimate your graph  using different parameters.
+	\end{itemize}
+
+\section{Version Information}
+	\subsection{DAWN}
+	\begin{itemize}
+		\item DAWN v1.0: Dec 09, 2015
+	\end{itemize}
+	\subsection{Manual}
+	\begin{itemize}
+		\item Manual v1.0: Dec 09, 2015
+	\end{itemize}
+\bibliography{user_manual.bib}
+\bibliographystyle{plain}		
+\end{document}

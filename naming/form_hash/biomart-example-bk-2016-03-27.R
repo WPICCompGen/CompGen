@@ -9,9 +9,9 @@ library(biomaRt)
 ensembl=useMart(biomart = "ensembl",dataset="hsapiens_gene_ensembl")
 
 # this lists all fields you can filter your data on
-availble.filters = listFilters(ensembl)
+available.filters = listFilters(ensembl)
 # this lists all fields you can put out
-availble.attributes = listAttributes(ensembl)
+available.attributes = listAttributes(ensembl)
 
 # here I am looking for information on a gene for which I have the ensembl gene id
 gene.id=c("ENSG00000128833")
@@ -32,7 +32,7 @@ gene.info.s2=getBM(attributes=c("ensembl_gene_id","hgnc_symbol"),
 
 ## finally if you need alias and previous names you should go to
 # http://biomart.genenames.org/martform/#!/default/HGNC?datasets=hgnc_gene_mart (ensembl currently does not have this ability)
-# here you can bulk upload gene names and then select the filter alias and previous names (2 runs) to get all possible known names for a gene
+# here you can bulk upload gene names and then select the filters approved,  alias and previous names (3 runs) to get all possible known names for a gene
 # select attributes "approved symbol" "alias symbol" and "previous symbol"
 
 gene.id=c("CHD8","DUPLIN", "AUTS18", "KIAA1564", "HELSNF1")

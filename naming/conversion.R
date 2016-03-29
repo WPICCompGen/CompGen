@@ -3,7 +3,7 @@ require(assertthat)
 require(biomaRt)
 
 #load in whatever gene tools is available
-load("gene-tools-kevinl1-2016-03-27.RData")
+load("gene-tools-kevinl1-2016-03-29.RData")
 
 .control <- setClass("control", representation(in.place = "logical",
   verbose = "logical", place.holder = "logical", enforce.uniq = "logical"),
@@ -34,13 +34,29 @@ convert.naming <- function(gene.vec, from, to, control = list(
   con = .convert.list2control(control)
 
   ensembl = useMart(biomart = "ensembl", dataset = "hsapiens_gene_ensembl")
+
+  #need to account for different symbol names
+  if(from == "symbol"){
+    gene.idx = numeric(length(gene.vec))
+    for(i in 1:length(gene.idx)){
+      gene.idx[i] = eval(parse(text = paste0("gene.tools$hash$", gene.vec[i])))
+    }
+  
+    #include ALL genes
+    gene.vec = c(names(gene.tools$syn.list)[gene.idx], unlist(gene.tools$syn.list[gene.idx]))
+    gene.vec = as.character(gene.vec)
+  }
+
   gene.info = getBM(attributes = vec, filters = vec[1], values = gene.vec, mart = ensembl)
 
   #in.place means that the ordering of the outputs matters
+  #TO FINISH
+  #question: how to handle multiplicity. how to handle non-uniquness?
   if(con@in.place){
-    
+  
   } else {
-    
+    idx = which(colnames(gene.info) == vec[2])
+    unique(gene.info[,idx])
   }
 
 }
